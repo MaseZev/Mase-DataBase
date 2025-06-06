@@ -23,7 +23,7 @@
 - 📧 [Email / Почта](mailto:admin@maseai.online)
 - 📦 [PyPI Package](https://pypi.org/project/masedb/)
 - 📂 [Examples / Примеры](#examples)
-- ⭐ [GitHub Repository](https://github.com/maseai/masedb)
+- ⭐ [GitHub Repository](https://github.com/MaseZev/Mase-DataBase?)
 
 ## Table of Contents / Содержание
 

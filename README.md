@@ -8,10 +8,10 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/masedb.svg)](https://pypi.org/project/masedb/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://masedb.maseai.online/documentation)
-[![GitHub stars](https://img.shields.io/github/stars/maseai/masedb.svg)](https://github.com/maseai/masedb/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/maseai/masedb.svg)](https://github.com/maseai/masedb/network)
-[![GitHub issues](https://img.shields.io/github/issues/maseai/masedb.svg)](https://github.com/maseai/masedb/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/maseai/masedb.svg)](https://github.com/maseai/masedb/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/maseai/masedb.svg)](https://github.com/MaseZev/Mase-DataBase/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/maseai/masedb.svg)](https://github.com/MaseZev/Mase-DataBase/network)
+[![GitHub issues](https://img.shields.io/github/issues/maseai/masedb.svg)](https://github.com/MaseZev/Mase-DataBase/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/maseai/masedb.svg)](https://github.com/MaseZev/Mase-DataBase/pulls)
 
 [English](#english) | [Русский](#russian)
 

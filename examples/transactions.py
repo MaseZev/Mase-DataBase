@@ -1,5 +1,5 @@
 """
-Transaction examples for MaseDB client.
+Transactions example for MaseDB Python Client.
 
 This example demonstrates:
 - Starting and managing transactions
@@ -10,174 +10,198 @@ This example demonstrates:
 """
 
 from masedb import MaseDBClient
-from masedb.exceptions import MaseDBError
+from masedb.exceptions import MaseDBError, BadRequestError, UnauthorizedError
+from datetime import datetime
 
 def main():
+    # Initialize client with your API key
     client = MaseDBClient(api_key="your_api_key")
     
     try:
         # Create collections
-        client.create_collection("accounts", "Bank accounts collection")
-        client.create_collection("transactions", "Transaction history collection")
-        print("Created collections")
+        print("\n1. Creating collections...")
+        client.create_collection("accounts", "Collection for bank accounts")
+        client.create_collection("transactions", "Collection for transaction history")
+        print("Collections created successfully")
         
-        # Insert initial account data
-        account1 = {
-            "account_id": "ACC001",
-            "owner": "John Doe",
-            "balance": 1000.00,
-            "currency": "USD",
-            "status": "active"
-        }
+        # Create initial accounts
+        print("\n2. Creating initial accounts...")
+        accounts = [
+            {
+                "account_id": "ACC001",
+                "owner": "John Doe",
+                "balance": 1000.00,
+                "currency": "USD",
+                "status": "active",
+                "created_at": datetime.utcnow().isoformat()
+            },
+            {
+                "account_id": "ACC002",
+                "owner": "Jane Smith",
+                "balance": 500.00,
+                "currency": "USD",
+                "status": "active",
+                "created_at": datetime.utcnow().isoformat()
+            }
+        ]
         
-        account2 = {
-            "account_id": "ACC002",
-            "owner": "Jane Smith",
-            "balance": 500.00,
-            "currency": "USD",
-            "status": "active"
-        }
+        for account in accounts:
+            result = client.create_document("accounts", account)
+            print(f"Account created: {result}")
         
-        client.insert_one("accounts", account1)
-        client.insert_one("accounts", account2)
-        print("Created initial accounts")
-        
-        # Example 1: Successful money transfer
-        print("\nExample 1: Successful money transfer")
+        # Example 1: Simple money transfer
+        print("\nExample 1: Simple money transfer")
         try:
             # Start transaction
             transaction = client.start_transaction()
-            print(f"Started transaction: {transaction['transaction_id']}")
+            transaction_id = transaction["transaction_id"]
+            print(f"Started transaction: {transaction_id}")
             
             # Perform transfer
-            amount = 200.00
+            amount = 100.00
             
-            # Update source account
+            # Update sender's account
             client.update_document("accounts", "ACC001", {
-                "$inc": {"balance": -amount}
+                "$inc": {"balance": -amount},
+                "$currentDate": {"last_modified": True}
             })
             
-            # Update destination account
+            # Update receiver's account
             client.update_document("accounts", "ACC002", {
-                "$inc": {"balance": amount}
+                "$inc": {"balance": amount},
+                "$currentDate": {"last_modified": True}
             })
             
             # Record transaction
-            transfer_record = {
-                "transaction_id": transaction["transaction_id"],
-                "type": "transfer",
+            client.create_document("transactions", {
+                "transaction_id": transaction_id,
                 "from_account": "ACC001",
                 "to_account": "ACC002",
                 "amount": amount,
                 "currency": "USD",
-                "status": "completed"
-            }
-            client.insert_one("transactions", transfer_record)
+                "status": "completed",
+                "timestamp": datetime.utcnow().isoformat()
+            })
             
             # Commit transaction
-            client.commit_transaction(transaction["transaction_id"])
-            print("Transfer completed successfully")
+            client.commit_transaction(transaction_id)
+            print("Transaction committed successfully")
             
-            # Verify balances
-            acc1 = client.find_one("accounts", {"account_id": "ACC001"})
-            acc2 = client.find_one("accounts", {"account_id": "ACC002"})
-            print(f"New balances - Account 1: ${acc1['balance']}, Account 2: ${acc2['balance']}")
-            
-        except MaseDBError as e:
-            print(f"Transfer failed: {e.message}")
-            # Transaction will be automatically rolled back
-            
-        # Example 2: Failed transfer (insufficient funds)
-        print("\nExample 2: Failed transfer (insufficient funds)")
+        except Exception as e:
+            print(f"Error during transfer: {e}")
+            client.rollback_transaction(transaction_id)
+            print("Transaction rolled back")
+        
+        # Example 2: Complex transaction with multiple operations
+        print("\nExample 2: Complex transaction with multiple operations")
         try:
             # Start transaction
             transaction = client.start_transaction()
-            print(f"Started transaction: {transaction['transaction_id']}")
+            transaction_id = transaction["transaction_id"]
+            print(f"Started transaction: {transaction_id}")
             
-            # Attempt transfer
-            amount = 2000.00  # More than available balance
-            
-            # Update source account
-            client.update_document("accounts", "ACC001", {
-                "$inc": {"balance": -amount}
-            })
-            
-            # Update destination account
-            client.update_document("accounts", "ACC002", {
-                "$inc": {"balance": amount}
-            })
-            
-            # Record transaction
-            transfer_record = {
-                "transaction_id": transaction["transaction_id"],
-                "type": "transfer",
-                "from_account": "ACC001",
-                "to_account": "ACC002",
-                "amount": amount,
+            # Create new account
+            new_account = {
+                "account_id": "ACC003",
+                "owner": "Bob Johnson",
+                "balance": 0.00,
                 "currency": "USD",
-                "status": "failed"
+                "status": "pending",
+                "created_at": datetime.utcnow().isoformat()
             }
-            client.insert_one("transactions", transfer_record)
+            client.create_document("accounts", new_account)
+            
+            # Transfer money from multiple accounts
+            transfers = [
+                {"from": "ACC001", "to": "ACC003", "amount": 50.00},
+                {"from": "ACC002", "to": "ACC003", "amount": 25.00}
+            ]
+            
+            for transfer in transfers:
+                # Update sender's account
+                client.update_document("accounts", transfer["from"], {
+                    "$inc": {"balance": -transfer["amount"]},
+                    "$currentDate": {"last_modified": True}
+                })
+                
+                # Update receiver's account
+                client.update_document("accounts", transfer["to"], {
+                    "$inc": {"balance": transfer["amount"]},
+                    "$currentDate": {"last_modified": True}
+                })
+                
+                # Record transaction
+                client.create_document("transactions", {
+                    "transaction_id": transaction_id,
+                    "from_account": transfer["from"],
+                    "to_account": transfer["to"],
+                    "amount": transfer["amount"],
+                    "currency": "USD",
+                    "status": "completed",
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            
+            # Update new account status
+            client.update_document("accounts", "ACC003", {
+                "$set": {"status": "active"},
+                "$currentDate": {"last_modified": True}
+            })
             
             # Commit transaction
-            client.commit_transaction(transaction["transaction_id"])
+            client.commit_transaction(transaction_id)
+            print("Complex transaction committed successfully")
             
-        except MaseDBError as e:
-            print(f"Transfer failed as expected: {e.message}")
-            # Rollback transaction
-            client.rollback_transaction(transaction["transaction_id"])
+        except Exception as e:
+            print(f"Error during complex transaction: {e}")
+            client.rollback_transaction(transaction_id)
             print("Transaction rolled back")
-            
-            # Verify balances remain unchanged
-            acc1 = client.find_one("accounts", {"account_id": "ACC001"})
-            acc2 = client.find_one("accounts", {"account_id": "ACC002"})
-            print(f"Balances unchanged - Account 1: ${acc1['balance']}, Account 2: ${acc2['balance']}")
-            
+        
         # Example 3: Transaction status monitoring
         print("\nExample 3: Transaction status monitoring")
         try:
             # Start transaction
             transaction = client.start_transaction()
-            print(f"Started transaction: {transaction['transaction_id']}")
+            transaction_id = transaction["transaction_id"]
+            print(f"Started transaction: {transaction_id}")
             
             # Check initial status
-            status = client.get_transaction_status(transaction["transaction_id"])
-            print(f"Initial status: {status['status']}")
+            status = client.get_transaction_status(transaction_id)
+            print(f"Initial status: {status}")
             
             # Perform some operations
             client.update_document("accounts", "ACC001", {
-                "$inc": {"balance": 100}
+                "$inc": {"balance": 100.00},
+                "$currentDate": {"last_modified": True}
             })
             
-            # Check status after operation
-            status = client.get_transaction_status(transaction["transaction_id"])
-            print(f"Status after operation: {status['status']}")
-            print(f"Changes count: {status['changes_count']}")
+            # Check status after operations
+            status = client.get_transaction_status(transaction_id)
+            print(f"Status after operations: {status}")
             
             # Commit transaction
-            client.commit_transaction(transaction["transaction_id"])
+            client.commit_transaction(transaction_id)
             
             # Check final status
-            status = client.get_transaction_status(transaction["transaction_id"])
-            print(f"Final status: {status['status']}")
+            status = client.get_transaction_status(transaction_id)
+            print(f"Final status: {status}")
             
-        except MaseDBError as e:
-            print(f"Error: {e.message}")
-            
-    except MaseDBError as e:
-        print(f"Error: {e.message}")
-        if e.code:
-            print(f"Error code: {e.code}")
-        if e.details:
-            print(f"Error details: {e.details}")
-    finally:
+        except Exception as e:
+            print(f"Error during status monitoring: {e}")
+            client.rollback_transaction(transaction_id)
+            print("Transaction rolled back")
+        
         # Clean up
-        try:
-            client.delete_collection("accounts")
-            client.delete_collection("transactions")
-            print("\nCollections deleted")
-        except MaseDBError:
-            pass
+        print("\n4. Cleaning up...")
+        client.delete_collection("accounts")
+        client.delete_collection("transactions")
+        print("Collections deleted")
+        
+    except BadRequestError as e:
+        print(f"Invalid request: {e}")
+    except UnauthorizedError as e:
+        print(f"Authentication failed: {e}")
+    except MaseDBError as e:
+        print(f"Database error: {e}")
 
 if __name__ == "__main__":
     main() 

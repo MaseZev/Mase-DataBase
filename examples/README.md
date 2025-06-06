@@ -20,7 +20,13 @@ This directory contains example scripts demonstrating various features and use c
 ### 🚀 Basic Usage (`basic_usage.py`)
 - ✨ Creating and managing collections
 - 📝 Basic CRUD operations with documents
-- 🔍 Using MongoDB-style query operators
+- 🔍 Using MongoDB-style query operators:
+  - Comparison: $eq, $ne, $gt, $gte, $lt, $lte
+  - Array: $in, $nin
+  - Existence: $exists
+  - Type: $type
+  - Regex: $regex
+  - Logical: $or, $and, $not, $nor
 - ⚠️ Error handling
 
 ### 🔬 Advanced Queries (`advanced_queries.py`)
@@ -30,6 +36,20 @@ This directory contains example scripts demonstrating various features and use c
 - 📋 Type checking
 - 🔤 Regular expressions
 - 📑 Nested document queries
+- 🔄 Update operators:
+  - $set: Set field values
+  - $inc: Increment numeric values
+  - $mul: Multiply numeric values
+  - $rename: Rename fields
+  - $unset: Remove fields
+  - $min: Set minimum value
+  - $max: Set maximum value
+  - $currentDate: Set current date
+  - $addToSet: Add unique elements to array
+  - $push: Add elements to array
+  - $pop: Remove first/last element from array
+  - $pull: Remove elements from array by condition
+  - $pullAll: Remove all specified elements from array
 
 ### 💾 Transactions (`transactions.py`)
 - ⚡ Starting and managing transactions
@@ -49,45 +69,125 @@ This directory contains example scripts demonstrating various features and use c
 
 To run any example, use Python from the command line:
 
----
+```bash
+python examples/basic_usage.py
+```
 
-<a name="russian"></a>
-# Русский
+## Example Code Snippets
 
-## Обзор
+### Basic Usage
+```python
+from masedb import MaseDBClient
 
-Эта директория содержит примеры скриптов, демонстрирующих различные функции и варианты использования клиента MaseDB для Python. Каждый пример разработан для демонстрации различных аспектов функциональности библиотеки.
+client = MaseDBClient(api_key="your_api_key")
 
-## Доступные примеры
+# Create a collection
+client.create_collection("users", "User collection")
 
-### 🚀 Базовое использование (`basic_usage.py`)
-- ✨ Создание и управление коллекциями
-- 📝 Базовые CRUD операции с документами
-- 🔍 Использование MongoDB-подобных операторов запросов
-- ⚠️ Обработка ошибок
+# Create a document
+document = {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "age": 30
+}
+result = client.create_document("users", document)
 
-### 🔬 Расширенные запросы (`advanced_queries.py`)
-- 🎯 Сложные MongoDB-подобные операторы запросов
-- 📊 Операции с массивами
-- 🔢 Логические операторы
-- 📋 Проверка типов
-- 🔤 Регулярные выражения
-- 📑 Запросы к вложенным документам
+# Query documents
+users = client.list_documents("users", {
+    "age": { "$gt": 25 },
+    "status": { "$in": ["active", "pending"] },
+    "$or": [
+        { "email": { "$exists": true } },
+        { "phone": { "$exists": true } }
+    ]
+})
+```
 
-### 💾 Транзакции (`transactions.py`)
-- ⚡ Запуск и управление транзакциями
-- 🔄 Выполнение нескольких операций в рамках транзакции
-- ↩️ Обработка отката транзакций
-- ⚠️ Обработка ошибок в транзакциях
-- 📊 Мониторинг статуса транзакций
+### Advanced Queries
+```python
+# Complex query with multiple operators
+query = {
+    "age": { "$gt": 25, "$lt": 50 },
+    "status": { "$in": ["active", "pending"] },
+    "tags": { "$all": ["verified", "premium"] },
+    "$or": [
+        { "email": { "$regex": "^john" } },
+        { "phone": { "$exists": true } }
+    ],
+    "$and": [
+        { "last_login": { "$gt": "2024-01-01" } },
+        { "is_active": true }
+    ]
+}
 
-### ⚡ Асинхронное использование (`async_usage.py`)
-- 🔄 Использование асинхронного клиента с asyncio
-- 📦 Асинхронное управление коллекциями
-- 📝 Асинхронное выполнение CRUD операций
-- 💾 Использование транзакций
-- ⚠️ Обработка ошибок в асинхронном контексте
+# Update with multiple operators
+update = {
+    "$set": { "name": "John Doe" },
+    "$inc": { "visits": 1 },
+    "$push": { "tags": { "$each": ["new", "user"] } },
+    "$currentDate": { "lastModified": true }
+}
+```
 
-## Запуск примеров
+### Transactions
+```python
+# Start a transaction
+transaction = client.start_transaction()
+transaction_id = transaction["transaction_id"]
 
-Для запуска любого примера используйте Python из командной строки:
+try:
+    # Perform operations
+    client.create_document("users", {"name": "John"})
+    client.update_document("users", "doc123", {"$inc": {"balance": 100}})
+    
+    # Commit if successful
+    client.commit_transaction(transaction_id)
+except Exception as e:
+    # Rollback on error
+    client.rollback_transaction(transaction_id)
+    raise e
+```
+
+### Async Usage
+```python
+import asyncio
+from masedb import AsyncMaseDBClient
+
+async def main():
+    async with AsyncMaseDBClient(api_key="your_api_key") as client:
+        # Create a collection
+        await client.create_collection("users", "User collection")
+        
+        # Create a document
+        document = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "age": 30
+        }
+        result = await client.create_document("users", document)
+        
+        # Query documents
+        users = await client.list_documents("users", {
+            "age": { "$gt": 25 },
+            "status": { "$in": ["active", "pending"] }
+        })
+
+asyncio.run(main())
+```
+
+## Error Handling
+
+All examples include proper error handling:
+
+```python
+from masedb.exceptions import MaseDBError, BadRequestError, UnauthorizedError
+
+try:
+    client.create_document("users", {"name": "John"})
+except BadRequestError as e:
+    print(f"Invalid request: {e}")
+except UnauthorizedError as e:
+    print(f"Authentication failed: {e}")
+except MaseDBError as e:
+    print(f"Database error: {e}")
+```

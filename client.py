@@ -36,6 +36,34 @@ All error responses follow this format:
         }
     }
 }
+
+API Endpoints:
+
+Collections API:
+- GET /api/collections - Get list of all collections
+- GET /api/collections/list - Get detailed list of all collections
+- POST /api/collections - Create new collection
+
+Documents API:
+- GET /api/<collection_name> - Get documents from collection
+- POST /api/<collection_name> - Create new document
+- GET /api/<collection_name>/<document_id> - Get specific document
+- PUT /api/<collection_name>/<document_id> - Update document
+- DELETE /api/<collection_name>/<document_id> - Delete document
+
+Indexes API:
+- POST /api/collection/<collection_name>/index - Create new index
+- GET /api/collection/<collection_name>/index - Get all indexes
+
+Transactions API:
+- POST /api/transaction - Start new transaction
+- POST /api/transaction/<transaction_id> - Commit transaction
+- POST /api/transaction/<transaction_id>/rollback - Rollback transaction
+- GET /api/transaction/<transaction_id> - Get transaction status
+
+Statistics API:
+- GET /api/stats - Get database statistics
+- GET /api/stats/detailed - Get detailed database statistics (admin only)
 """
 import requests
 import logging
@@ -238,7 +266,14 @@ class MaseDBClient:
             Optional[DocumentInfo]: First document matching the query or None if no match
             
         Example:
-            >>> client.find_one("users", {"age": {"$gt": 25}})
+            >>> client.find_one("users", {
+            ...     "age": { "$gt": 25 },
+            ...     "status": { "$in": ["active", "pending"] },
+            ...     "$or": [
+            ...         { "email": { "$exists": true } },
+            ...         { "phone": { "$exists": true } }
+            ...     ]
+            ... })
             {
                 "_id": "doc123",
                 "name": "John",
@@ -273,49 +308,78 @@ class MaseDBClient:
         """
         Get list of all collections.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Returns:
-            List[CollectionInfo]: List of collections with their details
+            List[CollectionInfo]: List of collections with basic information
             
         Example:
             >>> client.list_collections()
             [
                 {
-                    "name": "users",
-                    "description": "User collection",
-                    "owner_id": "user123",
-                    "created_at": 1647830400
+                    "name": "collection_name",
+                    "description": "description",
+                    "documents_count": 10,
+                    "size": 1024,
+                    "indexes": [],
+                    "created_at": "timestamp"
                 }
             ]
         """
         return self._request('GET', '/api/collections')
-    
+
+    def list_collections_detailed(self) -> Dict:
+        """
+        Get detailed list of all collections.
+        
+        Returns:
+            Dict: Detailed list of collections with additional information
+            
+        Example:
+            >>> client.list_collections_detailed()
+            {
+                "status": "success",
+                "collections": [
+                    {
+                        "name": "collection_name",
+                        "description": "description",
+                        "documents_count": 10,
+                        "size": 1024,
+                        "indexes": [],
+                        "created_at": "timestamp",
+                        "owner_id": "user_id"
+                    }
+                ],
+                "total": 1
+            }
+        """
+        return self._request('GET', '/api/collections/list')
+
     def create_collection(self, name: str, description: str = "") -> Dict:
         """
         Create a new collection.
         
-        Headers:
-            X-API-Key: <api_key>
-            Content-Type: application/json
-            
         Args:
             name (str): Name of the collection
             description (str, optional): Description of the collection
             
         Returns:
-            Dict: Success message
+            Dict: Created collection information
             
         Example:
             >>> client.create_collection("users", "User collection")
-            {"message": "Collection created successfully"}
+            {
+                "message": "Collection created successfully",
+                "collection": {
+                    "id": "collection_id",
+                    "name": "users",
+                    "description": "User collection",
+                    "created_at": "timestamp"
+                }
+            }
         """
-        data = {
+        return self._request('POST', '/api/collections', json={
             "name": name,
             "description": description
-        }
-        return self._request('POST', '/api/collections', json=data)
+        })
     
     def get_collection(self, name: str) -> Dict:
         """
@@ -361,23 +425,22 @@ class MaseDBClient:
         return self._request('DELETE', f'/api/collections/{name}')
     
     # Documents API
-    def list_documents(self, collection_name: str, query: Optional[Dict] = None) -> List[DocumentInfo]:
+    def list_documents(self, collection_name: str, query: Optional[Dict] = None, sort: Optional[Dict] = None, limit: Optional[int] = None) -> List[DocumentInfo]:
         """
-        Get all documents in a collection.
+        Get documents from collection.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
             collection_name (str): Name of the collection
-            query (Dict, optional): Query operators to filter documents. Supports MongoDB-style operators:
+            query (Dict, optional): Query conditions for filtering documents. Supports MongoDB-style operators:
                 - Comparison: $eq, $ne, $gt, $gte, $lt, $lte
                 - Array: $in, $nin
                 - Existence: $exists
                 - Type: $type
                 - Regex: $regex
                 - Logical: $or, $and, $not, $nor
-                
+            sort (Dict, optional): Fields for sorting (1 for ascending, -1 for descending)
+            limit (int, optional): Maximum number of documents to return
+            
         Returns:
             List[DocumentInfo]: List of documents matching the query
             
@@ -389,76 +452,91 @@ class MaseDBClient:
             ...         { "email": { "$exists": true } },
             ...         { "phone": { "$exists": true } }
             ...     ]
-            ... })
+            ... }, {"age": 1, "name": -1}, 10)
+            {
+                "documents": [
+                    {
+                        "metadata": {
+                            "_id": "document_id",
+                            "_created_at": "timestamp",
+                            "_updated_at": "timestamp"
+                        },
+                        "content": {
+                            "field1": "value1",
+                            "field2": "value2"
+                        }
+                    }
+                ],
+                "count": 1
+            }
         """
-        return self._request('GET', f'/api/{collection_name}', json=query or {})
+        params = {}
+        if query:
+            params['query'] = json.dumps(query)
+        if sort:
+            params['sort'] = json.dumps(sort)
+        if limit:
+            params['limit'] = limit
+            
+        return self._request('GET', f'/api/{collection_name}', params=params)
     
     def create_document(self, collection_name: str, document: Dict) -> Dict:
         """
         Create a new document in collection.
         
-        Headers:
-            X-API-Key: <api_key>
-            Content-Type: application/json
-            
         Args:
             collection_name (str): Name of the collection
-            document (Dict): Document data
+            document (Dict): Document content
             
         Returns:
-            Dict: Created document ID
+            Dict: Created document information
             
         Example:
-            >>> client.create_document("users", {
-            ...     "name": "John",
-            ...     "age": 30,
-            ...     "email": "john@example.com"
-            ... })
-            {"id": "doc123"}
+            >>> client.create_document("users", {"name": "John", "age": 30})
+            {
+                "document": {
+                    "_id": "document_id",
+                    "owner_id": "user_id",
+                    "_created_at": "timestamp",
+                    "_updated_at": "timestamp",
+                    "name": "John",
+                    "age": 30
+                },
+                "message": "Document created successfully"
+            }
         """
         return self._request('POST', f'/api/{collection_name}', json=document)
     
-    def get_document(self, collection_name: str, document_id: str, query: Optional[Dict] = None) -> DocumentInfo:
+    def get_document(self, collection_name: str, document_id: str) -> Dict:
         """
-        Get a specific document by ID with optional query operators.
+        Get a specific document.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
             collection_name (str): Name of the collection
-            document_id (str): ID of the document to retrieve
-            query (Dict, optional): Additional query operators to filter the document. Supports MongoDB-style operators:
-                - Comparison: $eq, $ne, $gt, $gte, $lt, $lte
-                - Array: $in, $nin
-                - Existence: $exists
-                - Type: $type
-                - Regex: $regex
-                - Logical: $or, $and, $not, $nor
-                
+            document_id (str): ID of the document
+            
         Returns:
-            DocumentInfo: Document matching the ID and query conditions
+            Dict: Document content
             
         Example:
-            >>> client.get_document("users", "123", {
-            ...     "age": { "$gt": 25 },
-            ...     "status": "active"
-            ... })
+            >>> client.get_document("users", "doc123")
+            {
+                "document": {
+                    "field1": "value1",
+                    "field2": "value2"
+                }
+            }
         """
-        return self._request('GET', f'/api/{collection_name}/{document_id}', json=query or {})
+        return self._request('GET', f'/api/{collection_name}/{document_id}')
     
     def update_document(self, collection_name: str, document_id: str, update: Dict) -> Dict:
         """
-        Update a document using MongoDB-style update operators or direct field updates.
+        Update a document.
         
-        Headers:
-            X-API-Key: <api_key>
-            Content-Type: application/json
-            
         Args:
             collection_name (str): Name of the collection
-            document_id (str): ID of the document to update
-            update (Dict): Update operations or direct field updates. Supports operators:
+            document_id (str): ID of the document
+            update (Dict): Update operations. Supports MongoDB-style operators:
                 - $set: Set field values
                 - $inc: Increment numeric values
                 - $mul: Multiply numeric values
@@ -472,38 +550,39 @@ class MaseDBClient:
                 - $pop: Remove first/last element from array
                 - $pull: Remove elements from array by condition
                 - $pullAll: Remove all specified elements from array
-                
+            
         Returns:
-            Dict: Success message
+            Dict: Update result
             
         Example:
-            >>> client.update_document("users", "123", {
+            >>> client.update_document("users", "doc123", {
             ...     "$set": { "name": "John" },
             ...     "$inc": { "visits": 1 },
             ...     "$push": { "tags": { "$each": ["new", "user"] } },
             ...     "$currentDate": { "lastModified": true }
             ... })
-            {"message": "Document updated successfully"}
+            {
+                "message": "Document updated successfully"
+            }
         """
         return self._request('PUT', f'/api/{collection_name}/{document_id}', json=update)
     
     def delete_document(self, collection_name: str, document_id: str) -> Dict:
         """
-        Delete a document from a collection.
+        Delete a document.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
             collection_name (str): Name of the collection
-            document_id (str): ID of the document to delete
+            document_id (str): ID of the document
             
         Returns:
-            Dict: Success message
+            Dict: Delete result
             
         Example:
-            >>> client.delete_document("users", "123")
-            {"message": "Document deleted successfully"}
+            >>> client.delete_document("users", "doc123")
+            {
+                "message": "Document deleted successfully"
+            }
         """
         return self._request('DELETE', f'/api/{collection_name}/{document_id}')
     
@@ -512,50 +591,44 @@ class MaseDBClient:
         """
         Create a new index for collection.
         
-        Headers:
-            X-API-Key: <api_key>
-            Content-Type: application/json
-            
         Args:
             collection_name (str): Name of the collection
-            fields (List[str]): List of fields to index
+            fields (List[str]): Fields to index
             
         Returns:
             Dict: Created index information
             
         Example:
-            >>> client.create_index("users", ["email", "age"])
+            >>> client.create_index("users", ["name", "age"])
             {
                 "message": "Index created",
                 "index": {
-                    "fields": ["email", "age"],
-                    "created_at": 1647830400
+                    "fields": ["name", "age"],
+                    "created_at": "timestamp"
                 }
             }
         """
-        data = {"fields": fields}
-        return self._request('POST', f'/api/collection/{collection_name}/index', json=data)
+        return self._request('POST', f'/api/collection/{collection_name}/index', json={
+            "fields": fields
+        })
     
     def list_indexes(self, collection_name: str) -> Dict:
         """
         Get all indexes for collection.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
             collection_name (str): Name of the collection
             
         Returns:
-            Dict: List of indexes with their details
+            Dict: List of indexes
             
         Example:
             >>> client.list_indexes("users")
             {
                 "indexes": [
                     {
-                        "fields": ["email"],
-                        "created_at": 1647830400
+                        "fields": ["name"],
+                        "created_at": "timestamp"
                     }
                 ]
             }
@@ -567,37 +640,33 @@ class MaseDBClient:
         """
         Start a new transaction.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Returns:
-            TransactionInfo: Transaction details including ID and status
+            TransactionInfo: Transaction information
             
         Example:
             >>> client.start_transaction()
             {
-                "transaction_id": "txn123",
+                "transaction_id": "transaction_id",
                 "status": "active"
             }
         """
-        return self._request('POST', '/api/transaction', json={})
+        return self._request('POST', '/api/transaction')
     
     def commit_transaction(self, transaction_id: str) -> Dict:
         """
         Commit a transaction.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
-            transaction_id (str): ID of the transaction to commit
+            transaction_id (str): ID of the transaction
             
         Returns:
-            Dict: Transaction status after commit
+            Dict: Commit result
             
         Example:
-            >>> client.commit_transaction("txn123")
-            {"status": "committed"}
+            >>> client.commit_transaction("tx123")
+            {
+                "status": "committed"
+            }
         """
         return self._request('POST', f'/api/transaction/{transaction_id}')
     
@@ -605,18 +674,17 @@ class MaseDBClient:
         """
         Rollback a transaction.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
-            transaction_id (str): ID of the transaction to rollback
+            transaction_id (str): ID of the transaction
             
         Returns:
-            Dict: Transaction status after rollback
+            Dict: Rollback result
             
         Example:
-            >>> client.rollback_transaction("txn123")
-            {"status": "rolled_back"}
+            >>> client.rollback_transaction("tx123")
+            {
+                "status": "rolled_back"
+            }
         """
         return self._request('POST', f'/api/transaction/{transaction_id}/rollback')
     
@@ -624,21 +692,18 @@ class MaseDBClient:
         """
         Get transaction status.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Args:
             transaction_id (str): ID of the transaction
             
         Returns:
-            TransactionInfo: Transaction details including status and changes count
+            TransactionInfo: Transaction status information
             
         Example:
-            >>> client.get_transaction_status("txn123")
+            >>> client.get_transaction_status("tx123")
             {
-                "transaction_id": "txn123",
+                "transaction_id": "transaction_id",
                 "status": "active",
-                "start_time": 1647830400,
+                "start_time": "timestamp",
                 "changes_count": 5
             }
         """
@@ -649,11 +714,8 @@ class MaseDBClient:
         """
         Get database statistics.
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Returns:
-            DatabaseStats: Database statistics including collections, documents, and operations
+            DatabaseStats: Database statistics
             
         Example:
             >>> client.get_stats()
@@ -692,11 +754,8 @@ class MaseDBClient:
         """
         Get detailed database statistics (admin only).
         
-        Headers:
-            X-API-Key: <api_key>
-            
         Returns:
-            DetailedStats: Detailed database statistics including shard and cache information
+            DetailedStats: Detailed database statistics
             
         Example:
             >>> client.get_detailed_stats()

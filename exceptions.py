@@ -27,6 +27,41 @@ All error responses follow this format:
         }
     }
 }
+
+Common Error Scenarios:
+1. Invalid API Key
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "Invalid API key"
+    }
+}
+Solution: Create a new API key or check existing one
+
+2. Collection Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Collection not found",
+        "details": {
+            "collection": "collection_name"
+        }
+    }
+}
+Solution: Create collection first or check collection name
+
+3. Validation Error
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Invalid document format",
+        "details": {
+            "field": "name",
+            "error": "Field is required"
+        }
+    }
+}
+Solution: Check document structure and required fields
 """
 
 class MaseDBError(Exception):

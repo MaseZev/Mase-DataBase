@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![MaseDB Logo](https://masedb.maseai.online/static/logo.png)
-
 [![PyPI version](https://badge.fury.io/py/masedb.svg)](https://badge.fury.io/py/masedb)
 [![Python Versions](https://img.shields.io/pypi/pyversions/masedb.svg)](https://pypi.org/project/masedb/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

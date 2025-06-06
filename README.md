@@ -2,6 +2,8 @@
 
 <div align="center">
 
+![MaseDB Logo](https://masedb.maseai.online/static/logo.png)
+
 [![PyPI version](https://badge.fury.io/py/masedb.svg)](https://badge.fury.io/py/masedb)
 [![Python Versions](https://img.shields.io/pypi/pyversions/masedb.svg)](https://pypi.org/project/masedb/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -23,7 +25,7 @@
 - 📧 [Email / Почта](mailto:admin@maseai.online)
 - 📦 [PyPI Package](https://pypi.org/project/masedb/)
 - 📂 [Examples / Примеры](#examples)
-- ⭐ [GitHub Repository](https://github.com/MaseZev/Mase-DataBase?)
+- ⭐ [GitHub Repository](https://github.com/maseai/masedb)
 
 ## Table of Contents / Содержание
 
@@ -91,6 +93,16 @@ document = {
     "age": 30
 }
 result = client.create_document("users", document)
+
+# Query documents using MongoDB-style operators
+users = client.list_documents("users", {
+    "age": { "$gt": 25 },
+    "status": { "$in": ["active", "pending"] },
+    "$or": [
+        { "email": { "$exists": true } },
+        { "phone": { "$exists": true } }
+    ]
+})
 ```
 
 ## Examples
@@ -116,7 +128,13 @@ Each example demonstrates different aspects of the library:
 ### Advanced Queries
 ```python
 # advanced_queries.py demonstrates:
-- Complex MongoDB-style query operators
+- Complex MongoDB-style query operators:
+  - Comparison: $eq, $ne, $gt, $gte, $lt, $lte
+  - Array: $in, $nin
+  - Existence: $exists
+  - Type: $type
+  - Regex: $regex
+  - Logical: $or, $and, $not, $nor
 - Array operations
 - Logical operators
 - Type checking
@@ -158,6 +176,9 @@ python examples/basic_usage.py
 # List all collections
 collections = client.list_collections()
 
+# Get detailed collection list
+detailed_collections = client.list_collections_detailed()
+
 # Create a new collection
 client.create_collection("users", "Collection for user data")
 
@@ -171,8 +192,15 @@ client.delete_collection("users")
 ### Documents
 
 ```python
-# List all documents in a collection
-documents = client.list_documents("users")
+# List documents with MongoDB-style queries
+documents = client.list_documents("users", {
+    "age": { "$gt": 25 },
+    "status": { "$in": ["active", "pending"] },
+    "$or": [
+        { "email": { "$exists": true } },
+        { "phone": { "$exists": true } }
+    ]
+}, sort={"age": 1, "name": -1}, limit=10)
 
 # Create a new document
 document = {
@@ -185,13 +213,14 @@ result = client.create_document("users", document)
 # Get a specific document
 document = client.get_document("users", "document_id")
 
-# Update a document
-updated_doc = {
-    "name": "John Doe",
-    "email": "john.doe@example.com",
-    "age": 31
+# Update a document with MongoDB-style operators
+update = {
+    "$set": { "name": "John Doe" },
+    "$inc": { "visits": 1 },
+    "$push": { "tags": { "$each": ["new", "user"] } },
+    "$currentDate": { "lastModified": true }
 }
-client.update_document("users", "document_id", updated_doc)
+client.update_document("users", "document_id", update)
 
 # Delete a document
 client.delete_document("users", "document_id")
@@ -234,88 +263,55 @@ stats = client.get_stats()
 detailed_stats = client.get_detailed_stats()
 ```
 
-### Batch Operations
+### MongoDB-style Operators
+
+#### Query Operators
+- Comparison: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`
+- Array: `$in`, `$nin`
+- Existence: `$exists`
+- Type: `$type`
+- Regex: `$regex`
+- Logical: `$or`, `$and`, `$not`, `$nor`
+
+#### Update Operators
+- `$set`: Set field values
+- `$inc`: Increment numeric values
+- `$mul`: Multiply numeric values
+- `$rename`: Rename fields
+- `$unset`: Remove fields
+- `$min`: Set minimum value
+- `$max`: Set maximum value
+- `$currentDate`: Set current date
+- `$addToSet`: Add unique elements to array
+- `$push`: Add elements to array
+- `$pop`: Remove first/last element from array
+- `$pull`: Remove elements from array by condition
+- `$pullAll`: Remove all specified elements from array
+
+### Error Handling
+
+The client provides comprehensive error handling with specific exception types for different error scenarios:
 
 ```python
-def batch_create_documents(client, collection_name, documents):
-    """Create multiple documents in parallel"""
-    return [client.create_document(collection_name, doc) for doc in documents]
-
-# Usage
-documents = [
-    {"name": "John Doe", "email": "john@example.com"},
-    {"name": "Jane Smith", "email": "jane@example.com"},
-    {"name": "Bob Johnson", "email": "bob@example.com"}
-]
-
-results = batch_create_documents(client, "users", documents)
-```
-
-## Error Handling
-
-The library provides specific exceptions for different error cases:
-
-```python
-from masedb import (
-    MaseDBError,
-    BadRequestError,
-    UnauthorizedError,
-    ForbiddenError,
-    NotFoundError,
-    ConflictError,
-    ValidationError,
-    RateLimitError,
-    InternalError,
-    ServiceUnavailableError
-)
+from masedb.exceptions import MaseDBError, BadRequestError, UnauthorizedError
 
 try:
-    client.create_collection("users")
+    client.create_document("users", {"name": "John"})
+except BadRequestError as e:
+    print(f"Invalid request: {e}")
 except UnauthorizedError as e:
-    print(f"Authentication failed: {e.message}")
-except ValidationError as e:
-    print(f"Validation error: {e.message}")
-    print(f"Details: {e.details}")
+    print(f"Authentication failed: {e}")
 except MaseDBError as e:
-    print(f"An error occurred: {e.message}")
+    print(f"Database error: {e}")
 ```
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://masedb.maseai.online/documentation/contributing) for details.
-
-### Development Setup
-
-1. Fork the repository
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/your-username/masedb.git
-   ```
-3. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-4. Install development dependencies:
-   ```bash
-   pip install -e ".[dev]"
-   ```
-5. Run tests:
-   ```bash
-   pytest
-   ```
-
-### Pull Request Process
-
-1. Update the README.md with details of changes if needed
-2. Update the documentation if needed
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -426,176 +422,3 @@ result = client.create_document("users", document)
 - Использование транзакций
 - Обработку ошибок в асинхронном контексте
 ```
-
-Для запуска примера:
-
-```bash
-python examples/basic_usage.py
-```
-
-## Справочник API
-
-### Коллекции
-
-```python
-# Получение списка всех коллекций
-collections = client.list_collections()
-
-# Создание новой коллекции
-client.create_collection("users", "Коллекция для данных пользователей")
-
-# Получение информации о коллекции
-collection = client.get_collection("users")
-
-# Удаление коллекции
-client.delete_collection("users")
-```
-
-### Документы
-
-```python
-# Получение всех документов в коллекции
-documents = client.list_documents("users")
-
-# Создание нового документа
-document = {
-    "name": "Иван Иванов",
-    "email": "ivan@example.com",
-    "age": 30
-}
-result = client.create_document("users", document)
-
-# Получение конкретного документа
-document = client.get_document("users", "document_id")
-
-# Обновление документа
-updated_doc = {
-    "name": "Иван Иванов",
-    "email": "ivan.ivanov@example.com",
-    "age": 31
-}
-client.update_document("users", "document_id", updated_doc)
-
-# Удаление документа
-client.delete_document("users", "document_id")
-```
-
-### Индексы
-
-```python
-# Создание индекса
-client.create_index("users", ["email", "age"])
-
-# Получение списка всех индексов
-indexes = client.list_indexes("users")
-```
-
-### Транзакции
-
-```python
-# Начало транзакции
-transaction = client.start_transaction()
-transaction_id = transaction["transaction_id"]
-
-# Подтверждение транзакции
-client.commit_transaction(transaction_id)
-
-# Откат транзакции
-client.rollback_transaction(transaction_id)
-
-# Получение статуса транзакции
-status = client.get_transaction_status(transaction_id)
-```
-
-### Статистика
-
-```python
-# Получение статистики базы данных
-stats = client.get_stats()
-
-# Получение детальной статистики (только для администраторов)
-detailed_stats = client.get_detailed_stats()
-```
-
-### Пакетные операции
-
-```python
-def batch_create_documents(client, collection_name, documents):
-    """Создание нескольких документов параллельно"""
-    return [client.create_document(collection_name, doc) for doc in documents]
-
-# Использование
-documents = [
-    {"name": "Иван Иванов", "email": "ivan@example.com"},
-    {"name": "Мария Петрова", "email": "maria@example.com"},
-    {"name": "Алексей Сидоров", "email": "alexey@example.com"}
-]
-
-results = batch_create_documents(client, "users", documents)
-```
-
-## Обработка ошибок
-
-Библиотека предоставляет специфические исключения для различных случаев ошибок:
-
-```python
-from masedb import (
-    MaseDBError,
-    BadRequestError,
-    UnauthorizedError,
-    ForbiddenError,
-    NotFoundError,
-    ConflictError,
-    ValidationError,
-    RateLimitError,
-    InternalError,
-    ServiceUnavailableError
-)
-
-try:
-    client.create_collection("users")
-except UnauthorizedError as e:
-    print(f"Ошибка аутентификации: {e.message}")
-except ValidationError as e:
-    print(f"Ошибка валидации: {e.message}")
-    print(f"Детали: {e.details}")
-except MaseDBError as e:
-    print(f"Произошла ошибка: {e.message}")
-```
-
-## Участие в разработке
-
-Мы приветствуем ваш вклад! Подробности смотрите в [Руководстве по участию в разработке](https://masedb.maseai.online/documentation/contributing).
-
-### Настройка окружения разработки
-
-1. Форкните репозиторий
-2. Клонируйте ваш форк:
-   ```bash
-   git clone https://github.com/ваш-username/masedb.git
-   ```
-3. Создайте виртуальное окружение:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # На Windows: venv\Scripts\activate
-   ```
-4. Установите зависимости для разработки:
-   ```bash
-   pip install -e ".[dev]"
-   ```
-5. Запустите тесты:
-   ```bash
-   pytest
-   ```
-
-### Процесс создания Pull Request
-
-1. Обновите README.md при необходимости
-2. Обновите документацию при необходимости
-3. Добавьте тесты для новой функциональности
-4. Убедитесь, что все тесты проходят
-5. Отправьте pull request
-
-## Лицензия
-
-MIT License 
